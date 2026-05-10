@@ -2,22 +2,27 @@ package com.example.emotionai.ui.detection
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.*
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.example.emotionai.viewmodel.DetectionViewModel
+import com.google.mediapipe.framework.image.BitmapImageBuilder
+import java.util.concurrent.Executors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -26,37 +31,26 @@ fun DetectionScreen(
     onBack: () -> Unit
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val state by viewModel.uiState.collectAsState()
+    val cameraExecutor = remember { Executors.newSingleThreadExecutor() }
 
     val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
-        val cameraGranted = permissions[Manifest.permission.CAMERA] ?: false
-        val audioGranted = permissions[Manifest.permission.RECORD_AUDIO] ?: false
-        viewModel.updatePermissions(cameraGranted, audioGranted)
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.updatePermissions(granted, state.hasAudioPermission)
     }
 
     LaunchedEffect(Unit) {
-        val cameraGranted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.CAMERA
+        val granted = ContextCompat.checkSelfPermission(
+            context, Manifest.permission.CAMERA
         ) == PackageManager.PERMISSION_GRANTED
+        viewModel.updatePermissions(granted, true)
+        if (!granted) permissionLauncher.launch(Manifest.permission.CAMERA)
+    }
 
-        val audioGranted = ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.RECORD_AUDIO
-        ) == PackageManager.PERMISSION_GRANTED
-
-        viewModel.updatePermissions(cameraGranted, audioGranted)
-
-        if (!cameraGranted || !audioGranted) {
-            permissionLauncher.launch(
-                arrayOf(
-                    Manifest.permission.CAMERA,
-                    Manifest.permission.RECORD_AUDIO
-                )
-            )
-        }
+    DisposableEffect(Unit) {
+        onDispose { cameraExecutor.shutdown() }
     }
 
     Scaffold(
@@ -65,10 +59,7 @@ fun DetectionScreen(
                 title = { Text("Detección") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Atrás"
-                        )
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Atrás")
                     }
                 }
             )
@@ -82,32 +73,82 @@ fun DetectionScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Permisos cámara: ${state.hasCameraPermission}")
-            Text("Permisos audio: ${state.hasAudioPermission}")
+            // Vista de cámara
+            if (state.hasCameraPermission) {
+                AndroidView(
+                    factory = { ctx ->
+                        val previewView = PreviewView(ctx)
 
+                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                        cameraProviderFuture.addListener({
+                            val cameraProvider = cameraProviderFuture.get()
+
+                            val preview = Preview.Builder().build().also {
+                                it.setSurfaceProvider(previewView.surfaceProvider)
+                            }
+
+                            val imageAnalyzer = ImageAnalysis.Builder()
+                                .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                                .build()
+                                .also { analysis ->
+                                    analysis.setAnalyzer(cameraExecutor) { imageProxy ->
+                                        if (state.isCapturing) {
+                                            try {
+                                                val bitmap = imageProxy.toBitmap()
+                                                val mpImage = BitmapImageBuilder(bitmap).build()
+                                                viewModel.processFrame(mpImage)
+                                            } catch (e: Exception) {
+                                                Log.e("DetectionScreen", "Error procesando frame", e)
+                                            }
+                                        }
+                                        imageProxy.close()
+                                    }
+                                }
+
+                            cameraProvider.unbindAll()
+                            cameraProvider.bindToLifecycle(
+                                lifecycleOwner,
+                                CameraSelector.DEFAULT_FRONT_CAMERA,
+                                preview,
+                                imageAnalyzer
+                            )
+                        }, ContextCompat.getMainExecutor(ctx))
+
+                        previewView
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(300.dp)
+                )
+            } else {
+                Text("Se necesita permiso de cámara")
+            }
+
+            // Botón captura
             Button(onClick = { viewModel.toggleCapture() }) {
-                Text(if (state.isCapturing) "Parar captura" else "Iniciar captura")
+                Text(if (state.isCapturing) "⏹ Parar" else "▶ Iniciar detección")
             }
 
-            Button(onClick = { viewModel.simulateDetection() }) {
-                Text("Simular detección")
+            // Resultado
+            state.currentEmotion?.let { emotion ->
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(
+                            text = emotion.label,
+                            style = MaterialTheme.typography.headlineMedium
+                        )
+                        Text(
+                            text = "Confianza: ${(emotion.confidence * 100).toInt()}%",
+                            style = MaterialTheme.typography.bodyLarge
+                        )
+                    }
+                }
             }
 
-            state.currentEmotion?.let {
-                Text("Emoción: ${it.label} (${(it.confidence * 100).toInt()}%)")
-            }
-
-            Button(
-                onClick = { viewModel.testBackendConnection() },
-                enabled = !state.isLoading
-            ) {
-                Text(if (state.isLoading) "Conectando..." else "Probar backend")
-            }
-
-            state.backendStatus?.let {
-                Text("Estado backend: $it")
-            }
-
+            // Error
             state.error?.let {
                 Text("Error: $it", color = MaterialTheme.colorScheme.error)
             }
