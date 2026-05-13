@@ -12,9 +12,13 @@ class EmotionRepository(context: Context) {
 
     fun analyzeFeatures(rawFeatures: FloatArray): EmotionResult {
         val processed = preprocessor.preprocess(rawFeatures)
-        val confidence = inference.infer(processed)
-        val label = if (confidence >= 0.5f) "Happy" else "Not Happy"
-        return EmotionResult(label = label, confidence = confidence)
+        val rawConfidence = inference.infer(processed)
+        val (label, finalConfidence) = if (rawConfidence >= 0.5f) {
+            "Happy" to rawConfidence
+        } else {
+            "Not Happy" to (1.0f - rawConfidence)
+        }
+        return EmotionResult(label = label, confidence = finalConfidence)
     }
 
     fun preprocessOnly(rawFeatures: FloatArray): FloatArray {

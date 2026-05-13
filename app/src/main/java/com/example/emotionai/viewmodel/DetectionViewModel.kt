@@ -19,51 +19,48 @@ class DetectionViewModel(application: Application) : AndroidViewModel(applicatio
     private val repository = EmotionRepository(application)
     private val auExtractor = AUExtractor(application)
     private val aggregator = FrameAggregator()
+    private var isProcessing = false
 
     private val _uiState = MutableStateFlow(DetectionUiState())
     val uiState: StateFlow<DetectionUiState> = _uiState.asStateFlow()
 
-    fun updatePermissions(cameraGranted: Boolean, audioGranted: Boolean) {
-        _uiState.update {
-            it.copy(hasCameraPermission = cameraGranted, hasAudioPermission = audioGranted)
-        }
+    fun updatePermissions(camera: Boolean, audio: Boolean) {
+        _uiState.update { it.copy(hasCameraPermission = camera, hasAudioPermission = audio) }
     }
 
     fun toggleCapture() {
-        val capturing = !_uiState.value.isCapturing
-        if (!capturing) aggregator.reset()
-        _uiState.update { it.copy(isCapturing = capturing, error = null) }
+        _uiState.update { 
+            val newState = !it.isCapturing
+            if (!newState) aggregator.reset()
+            it.copy(isCapturing = newState)
+        }
     }
 
-    /**
-     * Llamar en cada frame de CameraX cuando isCapturing == true
-     */
     fun processFrame(image: com.google.mediapipe.framework.image.MPImage) {
-        if (!_uiState.value.isCapturing) return
+        if (!_uiState.value.isCapturing || isProcessing) return
 
+        isProcessing = true
         viewModelScope.launch {
-            val aus = auExtractor.extractAUs(image) ?: run {
-                Log.d("EmotionAI", "No se detectó cara")
-                return@launch
-            }
-
-            Log.d("EmotionAI", "AUs extraídas: ${aus.take(5).joinToString()}")
-            aggregator.addFrame(aus)
-
-            if (aggregator.hasEnoughFrames()) {
-                val features = aggregator.computeFeatures() ?: return@launch
-                Log.d("EmotionAI", "Features raw (primeras 5): ${features.take(5).joinToString()}")
-
-                val processed = repository.preprocessOnly(features)
-                Log.d("EmotionAI", "Features procesadas (primeras 5): ${processed.take(5).joinToString()}")
-
-                val result = repository.analyzeFeatures(features)
-                Log.d("EmotionAI", "Resultado: ${result.label} - ${result.confidence}")
-                aggregator.reset()
-
-                _uiState.update {
-                    it.copy(currentEmotion = result, error = null)
+            try {
+                val aus = auExtractor.extractAUs(image) ?: run {
+                    aggregator.reset()
+                    _uiState.update { it.copy(currentEmotion = null) }
+                    return@launch
                 }
+
+                aggregator.addFrame(aus)
+
+                if (aggregator.hasEnoughFrames()) {
+                    val features = aggregator.computeFeatures() ?: return@launch
+                    val result = repository.analyzeFeatures(features)
+                    aggregator.reset()
+
+                    _uiState.update {
+                        it.copy(currentEmotion = result, error = null)
+                    }
+                }
+            } finally {
+                isProcessing = false
             }
         }
     }

@@ -62,6 +62,8 @@ dependencies {
     implementation(libs.google.mediapipe.tasks.vision)
     implementation(libs.google.litert)
     implementation(libs.google.litert.api)
+    implementation(libs.bundles.network)
+    implementation(libs.androidx.datastore.preferences)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
