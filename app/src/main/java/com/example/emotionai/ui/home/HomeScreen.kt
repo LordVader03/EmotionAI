@@ -19,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.material.icons.filled.History
 import androidx.compose.ui.unit.sp
 import com.example.emotionai.viewmodel.HomeViewModel
 
@@ -26,6 +27,7 @@ import com.example.emotionai.viewmodel.HomeViewModel
 fun HomeScreen(
     viewModel: HomeViewModel,
     onNavigateToDetection: () -> Unit,
+    onNavigateToSessions: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
     Box(
@@ -89,6 +91,16 @@ fun HomeScreen(
                 icon = Icons.Default.Face,
                 color = Color(0xFF2196F3),
                 onClick = onNavigateToDetection
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            MenuCard(
+                title = "MISSION HISTORY",
+                subtitle = "Review past sessions and emotions",
+                icon = Icons.Default.History,
+                color = Color(0xFF00BCD4),
+                onClick = onNavigateToSessions
             )
 
             Spacer(modifier = Modifier.height(16.dp))

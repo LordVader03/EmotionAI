@@ -3,6 +3,7 @@ package com.example.emotionai.data.repository
 import android.content.Context
 import com.example.emotionai.data.model.EmotionResult
 import com.example.emotionai.data.network.EmotionRequest
+import com.example.emotionai.data.network.EmotionResponse
 import com.example.emotionai.data.network.RetrofitClient
 import com.example.emotionai.ml.EmotionInference
 import com.example.emotionai.ml.EmotionPreprocessor
@@ -28,6 +29,15 @@ class EmotionRepository(context: Context) {
         return try {
             api.createEmotion(EmotionRequest(sessionId, label, confidence))
             Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun getEmotionsBySession(sessionId: Int): Result<List<EmotionResponse>> {
+        return try {
+            val response = api.getEmotionsBySession(sessionId)
+            Result.success(response)
         } catch (e: Exception) {
             Result.failure(e)
         }
