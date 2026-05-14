@@ -1,6 +1,8 @@
 package com.example.emotionai.ui.sessions
 
+import android.content.Intent
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,12 +15,14 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,10 +36,23 @@ fun SessionsScreen(
     viewModel: SessionsViewModel,
     onBack: () -> Unit
 ) {
+    val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(state.downloadComplete) {
+        if (state.downloadComplete) {
+            snackbarHostState.showSnackbar(
+                message = "Report saved to Downloads folder",
+                duration = SnackbarDuration.Short
+            )
+            viewModel.clearDownloadState()
+        }
+    }
 
     Scaffold(
         containerColor = Color(0xFF0A0A0A),
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = { 
@@ -88,10 +105,18 @@ fun SessionsScreen(
                             session = session,
                             isExpanded = state.expandedSessionId == session.id,
                             emotions = if (state.expandedSessionId == session.id) state.selectedSessionEmotions else emptyList(),
-                            onClick = { viewModel.toggleSessionExpansion(session.id) }
+                            onClick = { viewModel.toggleSessionExpansion(session.id) },
+                            onExport = { viewModel.exportSessionReport(session) }
                         )
                     }
                 }
+            }
+
+            if (state.isLoading && state.sessions.isNotEmpty()) {
+                LinearProgressIndicator(
+                    modifier = Modifier.fillMaxWidth().align(Alignment.TopCenter),
+                    color = Color(0xFF2196F3)
+                )
             }
 
             state.error?.let {
@@ -110,7 +135,8 @@ fun SessionItem(
     session: SessionResponse,
     isExpanded: Boolean,
     emotions: List<EmotionResponse>,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onExport: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -159,6 +185,20 @@ fun SessionItem(
                     } else {
                         emotions.forEach { emotion ->
                             EmotionLogItem(emotion)
+                        }
+                        
+                        Spacer(modifier = Modifier.height(16.dp))
+                        
+                        OutlinedButton(
+                            onClick = onExport,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF2196F3)),
+                            border = BorderStroke(1.dp, Color(0xFF2196F3).copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.PictureAsPdf, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("GENERATE EVOLUTION REPORT (PDF)")
                         }
                     }
                 }
