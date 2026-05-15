@@ -6,5 +6,9 @@ object NavRoutes {
     const val HOME = "home"
     const val DETECTION = "detection"
     const val SESSIONS = "sessions"
+    const val CONSULTANT = "consultant"
     const val SETTINGS = "settings"
+    
+    // Ruta con argumento opcional
+    const val CONSULTANT_WITH_ARG = "consultant?initialMessage={initialMessage}"
 }

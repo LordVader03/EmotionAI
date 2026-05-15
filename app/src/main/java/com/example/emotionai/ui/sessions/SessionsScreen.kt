@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,7 +35,8 @@ import com.example.emotionai.viewmodel.SessionsViewModel
 @Composable
 fun SessionsScreen(
     viewModel: SessionsViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onNavigateToConsultant: (String) -> Unit
 ) {
     val context = LocalContext.current
     val state by viewModel.uiState.collectAsState()
@@ -106,7 +108,10 @@ fun SessionsScreen(
                             isExpanded = state.expandedSessionId == session.id,
                             emotions = if (state.expandedSessionId == session.id) state.selectedSessionEmotions else emptyList(),
                             onClick = { viewModel.toggleSessionExpansion(session.id) },
-                            onExport = { viewModel.exportSessionReport(session) }
+                            onExport = { viewModel.exportSessionReport(session) },
+                            onAskAI = { 
+                                onNavigateToConsultant("Analyze my emotional state in the session: ${session.name ?: "Unnamed"}") 
+                            }
                         )
                     }
                 }
@@ -136,7 +141,8 @@ fun SessionItem(
     isExpanded: Boolean,
     emotions: List<EmotionResponse>,
     onClick: () -> Unit,
-    onExport: () -> Unit
+    onExport: () -> Unit,
+    onAskAI: () -> Unit
 ) {
     Card(
         modifier = Modifier
@@ -199,6 +205,20 @@ fun SessionItem(
                             Icon(Icons.Default.PictureAsPdf, contentDescription = null)
                             Spacer(modifier = Modifier.width(8.dp))
                             Text("GENERATE EVOLUTION REPORT (PDF)")
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        OutlinedButton(
+                            onClick = onAskAI,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF9C27B0)),
+                            border = BorderStroke(1.dp, Color(0xFF9C27B0).copy(alpha = 0.5f)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(Icons.Default.Psychology, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("ASK AI ABOUT THIS SESSION")
                         }
                     }
                 }

@@ -6,9 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoGraph
-import androidx.compose.material.icons.filled.Face
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -19,7 +17,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.material.icons.filled.History
 import androidx.compose.ui.unit.sp
 import com.example.emotionai.viewmodel.HomeViewModel
 
@@ -28,6 +25,7 @@ fun HomeScreen(
     viewModel: HomeViewModel,
     onNavigateToDetection: () -> Unit,
     onNavigateToSessions: () -> Unit,
+    onNavigateToConsultant: () -> Unit,
     onNavigateToSettings: () -> Unit
 ) {
     Box(
@@ -106,6 +104,16 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             MenuCard(
+                title = "AI CONSULTANT",
+                subtitle = "Personalized emotional advisor",
+                icon = Icons.Default.Psychology,
+                color = Color(0xFF9C27B0),
+                onClick = onNavigateToConsultant
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            MenuCard(
                 title = "SETTINGS",
                 subtitle = "Configure neural parameters",
                 icon = Icons.Default.Settings,
@@ -135,7 +143,7 @@ fun MenuCard(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(100.dp)
+            .height(90.dp)
             .clip(RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
             .border(1.dp, color.copy(alpha = 0.2f), RoundedCornerShape(20.dp)),
@@ -143,13 +151,13 @@ fun MenuCard(
     ) {
         Row(
             modifier = Modifier
-                .padding(20.dp)
+                .padding(16.dp)
                 .fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(40.dp)
                     .background(color.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
@@ -163,7 +171,7 @@ fun MenuCard(
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium.copy(
+                    style = MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     ),
